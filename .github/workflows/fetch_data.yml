@@ -1,0 +1,27 @@
+name: Fetch new API data
+
+on:
+  # schedule:
+  #   - cron: '* * * * *'
+  repository_dispatch:
+    types: [fetch_velib_api]
+  workflow_dispatch:
+
+jobs:
+  fetch_push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Fecth new data
+        run: |
+          chmod +x ./fetch_data
+          ./fetch_data
+
+      - name: Commit the new file
+        uses: EndBug/add-and-commit@v9
+        with:
+          default_author: github_actions
+          message: 'Added data from API'
+          pull: '--rebase --autostash'

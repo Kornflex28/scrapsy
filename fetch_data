@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Author : L. Chauvet
+# Date   : 2022/07/11
+# Fetch Velib API data and save it to a csv file
+
+# API URL
+VELIB_API_STATUS_URL="https://velib-metropole-opendata.smoove.pro/opendata/Velib_Metropole/station_status.json"
+
+# PATHS
+CUR_DIR=$(dirname $0)
+DATA_DIR="${CUR_DIR}/data"
+LASTSUM="${CUR_DIR}/.lastsum"
+
+[[ -d "$DATA_DIR" ]] || mkdir "$DATA_DIR"
+
+STATUS_JSON_DATA=$(curl -s $VELIB_API_STATUS_URL)
+STATUS_DATE=$(grep -oP '(?<="lastUpdatedOther":)[^",]*' <<< "$STATUS_JSON_DATA")
+STATUS_CHKSUM=$(shasum <<< "$STATUS_JSON_DATA")
+STATUS_FILE="${DATA_DIR}/${STATUS_DATE}.csv"
+
+if [[ -e "$LASTSUM" ]]
+then
+	if [[ $STATUS_CHKSUM = $(cat $LASTSUM) ]]
+	then
+		exit 0
+	else
+		echo $STATUS_CHKSUM > "$LASTSUM"
+		echo $STATUS_JSON_DATA | jq -r '["last_reported","station_id","is_installed","is_returning","is_renting","dock_available","mechanical_available","electric_available"] , (.data.stations[] as $s | [$s.last_reported, $s.station_id,$s.is_installed,$s.is_returning,$s.is_renting,$s.num_docks_available,$s.num_bikes_available_types[0].mechanical, $s.num_bikes_available_types[1].ebike]) |@csv' >> $STATUS_FILE
+	fi
+		
+else
+	echo $STATUS_CHKSUM > $LASTSUM
+	echo $STATUS_JSON_DATA | jq -r '["last_reported","station_id","is_installed","is_returning","is_renting","dock_available","mechanical_available","electric_available"] , (.data.stations[] as $s | [$s.last_reported, $s.station_id,$s.is_installed,$s.is_returning,$s.is_renting,$s.num_docks_available,$s.num_bikes_available_types[0].mechanical, $s.num_bikes_available_types[1].ebike]) |@csv' >> $STATUS_FILE
+
+fi
