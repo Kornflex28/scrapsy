@@ -1,6 +1,8 @@
 # Scrapsy
 
-This repository fetches [Paris' Velib](https://www.velib-metropole.fr/) live data every minute from this [Paris Open data's API](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/) and stores it.
+This repository fetches [Paris' Velib](https://www.velib-metropole.fr/) live data every 30 s from this [Paris Open data's API](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/) and stores it.
+
+:exclamation: The API seems to gives sometime data from a random timestamp close to time of request. (it can give you the data from 3 minutes before your request time even though new data is available)
 
 ## Data description
 
