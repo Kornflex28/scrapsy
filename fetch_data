@@ -46,13 +46,13 @@ if [[ -e "${LASTSUM}" ]]; then
 		exit 0
 	else
 		echo $STATUS_CHKSUM > "$LASTSUM"
-		echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" >> $STATUS_FILE
+		echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" > $STATUS_FILE
 		echo "Downloaded ${STATUS_FILE}"
 	fi
 else
 	echo "No previous shasum found."
 	echo $STATUS_CHKSUM > $LASTSUM
-	echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" >> $STATUS_FILE
+	echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" > $STATUS_FILE
 	echo "Downloaded ${STATUS_FILE}"
 
 fi
