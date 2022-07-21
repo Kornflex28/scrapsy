@@ -1,8 +1,6 @@
 name: Fetch new API data
 
 on:
-  # schedule:
-  #   - cron: '* * * * *'
   repository_dispatch:
     types: [fetch_velib_api]
   workflow_dispatch:
@@ -15,13 +13,14 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Fecth new data
+        id: fetch_data
         run: |
           chmod +x ./fetch_data
           ./fetch_data
 
-      - name: Commit the new file
+      - name: Commit new file
         uses: EndBug/add-and-commit@v9
         with:
           default_author: github_actions
-          message: 'Added data from API'
+          message: "Added data from API - ${{ steps.fetch_data.outputs.filename }}"
           pull: '--rebase --autostash'

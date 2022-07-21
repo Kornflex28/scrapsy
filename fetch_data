@@ -3,9 +3,26 @@
 # Author : L. Chauvet
 # Date   : 2022/07/11
 # Fetch Velib API data and save it to a csv file
+#
+# Changelogs :
+# 2022/07/11 : initial
+# 2022/07/21 : - changed API URL
+#			   - fixed shasum check
+#			   - added exit if curl request gives an error code
+#			   - added log printing
+#			   - added filename as output for GitHub Actions
 
-# API URL
-VELIB_API_STATUS_URL="https://velib-metropole-opendata.smoove.pro/opendata/Velib_Metropole/station_status.json"
+# API URL (looks like every station are updated every hour at random time)
+# VELIB_API_STATUS_URL="https://velib-metropole-opendata.smoove.pro/opendata/Velib_Metropole/station_status.json"
+# JQ_FORMULA='["last_reported","station_id","is_installed","is_returning","is_renting","dock_available","mechanical_available","electric_available"] , (.data.stations[] as $s | [$s.last_reported, $s.station_id,$s.is_installed,$s.is_returning,$s.is_renting,$s.num_docks_available,$s.num_bikes_available_types[0].mechanical, $s.num_bikes_available_types[1].ebike])'
+
+# API URL (updates every station every minute)
+VELIB_API_STATUS_URL="https://opendata.paris.fr/api/records/1.0/search/?dataset=velib-disponibilite-en-temps-reel&rows=2000"
+# Complete data
+# JQ_FORMULA='["last_reported","station_code","is_installed","is_returning","is_renting","mechanical_available","electric_available", "capacity","lat","lon"] , (.records[] | [ (.record_timestamp | sub(".[0-9]+Z$"; "Z")|fromdate), .fields.stationcode, (if .fields.is_installed == "OUI" then 1 else 0 end) , (if .fields.is_returning  == "OUI" then 1 else 0 end), (if .fields.is_renting  == "OUI" then 1 else 0 end), .fields.ebike, .fields.mechanical, .fields.capacity, .fields.coordonnees_geo[]  ])'
+# Only useful data (keeps .csv smaller)
+JQ_FORMULA='["station_code","mechanical_available","electric_available"] , (.records[] | [ .fields.stationcode, .fields.ebike, .fields.mechanical ])'
+
 
 # PATHS
 CUR_DIR=$(dirname $0)
@@ -14,23 +31,30 @@ LASTSUM="${CUR_DIR}/.lastsum"
 
 [[ -d "$DATA_DIR" ]] || mkdir "$DATA_DIR"
 
-STATUS_JSON_DATA=$(curl -s $VELIB_API_STATUS_URL)
-STATUS_DATE=$(grep -oP '(?<="lastUpdatedOther":)[^",]*' <<< "$STATUS_JSON_DATA")
-STATUS_CHKSUM=$(shasum <<< "$STATUS_JSON_DATA")
+STATUS_JSON_DATA=$(curl -s -f $VELIB_API_STATUS_URL)
+[[ $? -ne 0 ]] && echo "Couldn't fetch data" && exit 0
+
+STATUS_DATE_STR=$(echo $STATUS_JSON_DATA | jq -r ".records[0].record_timestamp")
+STATUS_DATE=$(date -d "${STATUS_DATE_STR}" +"%s")
+STATUS_CHKSUM=$(echo "${STATUS_JSON_DATA}" | shasum | awk '{ print $1 }')
 STATUS_FILE="${DATA_DIR}/${STATUS_DATE}.csv"
 
-if [[ -e "$LASTSUM" ]]
-then
-	if [[ $STATUS_CHKSUM = $(cat $LASTSUM) ]]
-	then
+if [[ -e "${LASTSUM}" ]]; then
+	LAST_CHKSM="$(cat $LASTSUM)"
+	if [[ "${STATUS_CHKSUM}" == "${LAST_CHKSM}" ]]; then
+		echo "File ${STATUS_FILE} already downloaded. (previous file has identical shasum)"
 		exit 0
 	else
 		echo $STATUS_CHKSUM > "$LASTSUM"
-		echo $STATUS_JSON_DATA | jq -r '["last_reported","station_id","is_installed","is_returning","is_renting","dock_available","mechanical_available","electric_available"] , (.data.stations[] as $s | [$s.last_reported, $s.station_id,$s.is_installed,$s.is_returning,$s.is_renting,$s.num_docks_available,$s.num_bikes_available_types[0].mechanical, $s.num_bikes_available_types[1].ebike]) |@csv' >> $STATUS_FILE
+		echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" >> $STATUS_FILE
+		echo "Downloaded ${STATUS_FILE}"
 	fi
-		
 else
+	echo "No previous shasum found."
 	echo $STATUS_CHKSUM > $LASTSUM
-	echo $STATUS_JSON_DATA | jq -r '["last_reported","station_id","is_installed","is_returning","is_renting","dock_available","mechanical_available","electric_available"] , (.data.stations[] as $s | [$s.last_reported, $s.station_id,$s.is_installed,$s.is_returning,$s.is_renting,$s.num_docks_available,$s.num_bikes_available_types[0].mechanical, $s.num_bikes_available_types[1].ebike]) |@csv' >> $STATUS_FILE
+	echo $STATUS_JSON_DATA | jq -r "${JQ_FORMULA} |@csv" >> $STATUS_FILE
+	echo "Downloaded ${STATUS_FILE}"
 
 fi
+
+echo "::set-output name=filename::${STATUS_DATE}.csv"
