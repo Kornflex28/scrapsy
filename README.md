@@ -25,7 +25,7 @@ Example of snapshot `1658398440.csv` (Thursday 21 July 2022 10:14:00)
 | `electric_available`   | number of electric bicycle (blue) available at this time at this station |
 
 
-This table is used together whith `stations.json`
+This table is used together whith `stations.csv`
 
 
 | station_code | name | latitude | longitude | capacity | is_installed | is_renting | is_returning | town |
